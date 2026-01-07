@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>qPCR PrimerBatch Designer | wwp643</title>
+    <style>
+        :root { --primary: #0284c7; --primary-dark: #0369a1; --bg: #f8fafc; --text: #1e293b; --fwd: #fef08a; --rev: #67e8f9; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); }
+        
+        /* Header */
+        header { text-align: center; border-bottom: 1px solid #e2e8f0; margin-bottom: 30px; padding-bottom: 20px; }
+        header h1 { margin: 0; color: var(--primary); font-size: 28px; letter-spacing: -0.5px; }
+        header p { color: #64748b; margin-top: 8px; }
+
+        .main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 30px; }
+        @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+
+        /* Input Area */
+        .input-box label { display: block; font-weight: 600; margin-bottom: 10px; font-size: 14px; }
+        textarea { width: 100%; height: 380px; padding: 16px; border: 1px solid #cbd5e1; border-radius: 12px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; box-sizing: border-box; transition: all 0.2s; background: #fdfdfd; }
+        textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.1); }
+
+        /* Sidebar Controls */
+        .sidebar { background: #f1f5f9; padding: 24px; border-radius: 12px; height: fit-content; position: sticky; top: 20px; }
+        .control-group { margin-bottom: 20px; }
+        .control-group label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #475569; display: block; margin-bottom: 8px; }
+        .input-row { display: flex; align-items: center; gap: 8px; }
+        input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+
+        button { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; transition: all 0.2s; margin-bottom: 12px; }
+        button:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        .btn-secondary { background: #10b981; }
+        .btn-secondary:hover { background: #059669; }
+
+        /* Result Cards */
+        .gene-card { margin-top: 32px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .card-header { background: #334155; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .card-body { padding: 20px; }
+        
+        .res-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+        .res-table th { text-align: left; padding: 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; }
+        .res-table td { padding: 12px 10px; border-bottom: 1px solid #f1f5f9; }
+        .mono { font-family: monospace; font-weight: 600; color: var(--primary); }
+
+        /* Visual Map */
+        .map-wrapper { background: #0f172a; color: #94a3b8; padding: 20px; border-radius: 8px; font-family: "SFMono-Regular", monospace; font-size: 12px; line-height: 1.6; word-break: break-all; max-height: 200px; overflow-y: auto; }
+        .h-fwd { background: var(--fwd); color: #000; font-weight: bold; border-radius: 2px; }
+        .h-rev { background: var(--rev); color: #000; font-weight: bold; border-radius: 2px; }
+
+        footer { text-align: center; margin-top: 50px; padding: 20px; color: #94a3b8; font-size: 13px; border-top: 1px solid #f1f5f9; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>qPCR PrimerBatch Designer</h1>
+        <p>专业级批量引物设计工具 · 针对高 GC 含量基因组优化</p>
+    </header>
+
+    <div class="main-grid">
+        <div class="input-box">
+            <label>序列输入 (FASTA 格式)</label>
+            <textarea id="fastaInput" placeholder=">Gene_ID_01
+ATGC...
+>Gene_ID_02
+ATGC..."></textarea>
+            <div id="results"></div>
+        </div>
+
+        <div class="sidebar">
+            <div class="control-group">
+                <label>Tm 范围 (°C)</label>
+                <div class="input-row">
+                    <input type="number" id="tmMin" value="55">
+                    <span>-</span>
+                    <input type="number" id="tmMax" value="75">
+                </div>
+            </div>
+            <div class="control-group">
+                <label>产物长度 (bp)</label>
+                <div class="input-row">
+                    <input type="number" id="pMin" value="80">
+                    <span>-</span>
+                    <input type="number" id="pMax" value="160">
+                </div>
+            </div>
+            <div class="control-group">
+                <label>3'端 GC 限制</label>
+                <input type="number" id="gcLimit" value="3">
+            </div>
+
+            <button onclick="design()">⚡ 运行分析</button>
+            <button class="btn-secondary" onclick="exportData()">📋 复制结果至 Excel</button>
+            
+            <div style="font-size: 11px; color: #64748b; line-height: 1.5;">
+                * 提示：高 GC 样本建议 Tm 窗口设为 60-72°C。
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        Developed by <b>wwp643</b> | Open Source on GitHub
+    </footer>
+</div>
+
+<script>
+    // 算法引擎
+    const calcTm = s => (64.9 + 41 * ((s.match(/[GC]/g) || []).length - 16.4) / s.length).toFixed(1);
+    const revComp = s => s.split('').reverse().map(b => ({'A':'T','T':'A','G':'C','C':'G'}[b] || 'N')).join('');
+
+    function design() {
+        const input = document.getElementById('fastaInput').value;
+        const out = document.getElementById('results');
+        out.innerHTML = "<p style='text-align:center;color:#64748b'>分析中...</p>";
+
+        const genes = input.split('>').filter(s => s.trim()).map(s => {
+            const lines = s.split('\n');
+            return { name: lines[0].trim(), seq: lines.slice(1).join('').toUpperCase().replace(/[^ATGC]/g, '') };
+        });
+
+        if (!genes.length) { alert("请输入 FASTA 格式序列"); return; }
+
+        let html = "";
+        genes.forEach(g => {
+            const pair = findBest(g.seq);
+            html += renderCard(g.name, g.seq, pair);
+        });
+        out.innerHTML = html;
+    }
+
+    function findBest(seq) {
+        const tmMin = parseFloat(document.getElementById('tmMin').value);
+        const tmMax = parseFloat(document.getElementById('tmMax').value);
+        const pMin = parseInt(document.getElementById('pMin').value);
+        const pMax = parseInt(document.getElementById('pMax').value);
+        const gcLim = parseInt(document.getElementById('gcLimit').value);
+
+        for (let i = 0; i < seq.length - pMax; i += 2) {
+            let f = seq.substr(i, 20);
+            let fTm = parseFloat(calcTm(f));
+            if (fTm >= tmMin && fTm <= tmMax && (f.slice(-5).match(/[GC]/g)||[]).length <= gcLim) {
+                for (let j = i + pMin; j < i + pMax; j++) {
+                    if (j + 20 > seq.length) break;
+                    let r = revComp(seq.substr(j, 20));
+                    let rTm = parseFloat(calcTm(r));
+                    if (Math.abs(fTm - rTm) <= 1.5 && rTm >= tmMin && rTm <= tmMax && (r.slice(-5).match(/[GC]/g)||[]).length <= gcLim) {
+                        return { f, fTm, r, rTm, fs: i, rs: j, len: j + 20 - i };
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    function renderCard(name, full, p) {
+        let content = p ? `
+            <table class="res-table">
+                <tr><th>引物</th><th>序列 (5'-3')</th><th>Tm</th><th>产物</th></tr>
+                <tr><td>Forward</td><td class="mono">${p.f}</td><td>${p.fTm}°C</td><td rowspan="2">${p.len} bp</td></tr>
+                <tr><td>Reverse</td><td class="mono">${p.r}</td><td>${p.rTm}°C</td></tr>
+            </table>
+            <div class="map-wrapper">${full.split('').map((b, i) => {
+                if (i >= p.fs && i < p.fs + 20) return `<span class="h-fwd">${b}</span>`;
+                if (i >= p.rs && i < p.rs + 20) return `<span class="h-rev">${b}</span>`;
+                return b;
+            }).join('')}</div>` : `<p style="color:#ef4444">当前参数未找到匹配引物。</p>`;
+
+        return `<div class="gene-card"><div class="card-header"><span>基因: ${name}</span></div><div class="card-body">${content}</div></div>`;
+    }
+
+    function exportData() {
+        let txt = "Gene\tDirection\tSequence\tTm\tProduct_Size\n";
+        document.querySelectorAll('.gene-card').forEach(card => {
+            const name = card.querySelector('.card-header').innerText.replace('基因: ', '');
+            const rows = card.querySelectorAll('.res-table tr');
+            if (rows.length > 1) {
+                const size = rows[1].cells[3].innerText;
+                txt += `${name}\tFwd\t${rows[1].cells[1].innerText}\t${rows[1].cells[2].innerText}\t${size}\n`;
+                txt += `${name}\tRev\t${rows[2].cells[1].innerText}\t${rows[2].cells[2].innerText}\t${size}\n`;
+            }
+        });
+        navigator.clipboard.writeText(txt).then(() => alert("数据已复制，可直接在 Excel 粘贴。"));
+    }
+</script>
+</body>
+</html>

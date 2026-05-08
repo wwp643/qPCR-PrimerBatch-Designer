@@ -24,4 +24,4 @@
 
 ### 1. 获取项目
 ```bash
-git clone [https://github.com/wwp643/qPCR-Primer-Designer.git](https://github.com/wwp643/qPCR-Primer-Designer.git)
+https://wwp643.github.io/qPCR-PrimerBatch-Designer/
